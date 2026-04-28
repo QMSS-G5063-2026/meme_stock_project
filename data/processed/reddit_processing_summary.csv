@@ -1,0 +1,6 @@
+metric,value
+raw_records_with_mentions,802589
+date_start,2020-12-08
+date_end,2021-02-04
+unique_tickers,5
+data_status,processed raw Reddit export

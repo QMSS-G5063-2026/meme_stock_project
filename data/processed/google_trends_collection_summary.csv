@@ -1,0 +1,6 @@
+metric,value
+data_status,cached Google Trends API export
+rows,1020
+terms,4
+windows,5
+failures,live collection failed; reused cached raw exports

@@ -1,0 +1,17 @@
+# Python/cache artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local app/server logs
+*.log
+streamlit_server*.log
+
+# Course materials copied into the local workspace
+course_content/
+final_project.md
+
+# Large raw Reddit archives. Keep processed CSV outputs in data/processed.
+data/raw/reddit/*
+!data/raw/reddit/.gitkeep
+

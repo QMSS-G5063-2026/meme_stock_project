@@ -1,0 +1,21 @@
+window,source,target,weight
+Full range,AMC,GME,88491
+Full range,AMC,NOK,31391
+Full range,GME,NOK,28074
+Full range,BB,GME,5363
+Full range,AMC,BB,3209
+Full range,BBBY,GME,2732
+Full range,BB,NOK,2570
+Full range,AMC,BBBY,1922
+Full range,BBBY,NOK,1279
+Full range,BB,BBBY,293
+January 2021 squeeze,AMC,GME,88456
+January 2021 squeeze,AMC,NOK,31391
+January 2021 squeeze,GME,NOK,28041
+January 2021 squeeze,BB,GME,5355
+January 2021 squeeze,AMC,BB,3209
+January 2021 squeeze,BBBY,GME,2706
+January 2021 squeeze,BB,NOK,2567
+January 2021 squeeze,AMC,BBBY,1922
+January 2021 squeeze,BBBY,NOK,1279
+January 2021 squeeze,BB,BBBY,293
