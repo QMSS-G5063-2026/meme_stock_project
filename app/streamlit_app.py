@@ -800,7 +800,8 @@ with tab_timeline:
             st.info("No event annotations fall inside the selected timeline window.")
         st.caption(
             f"Timeline is focused on {timeline_focus_ticker}. Event labels use the original event text directly on the chart. "
-            f"Market data are processed project data. Reddit attention status: {reddit_status}."
+            f"Daily stock price data source: We pulled data from Yahoo Finance and processed it for the app. "
+            f"Reddit attention status: {reddit_status}."
         )
 
         st.subheader("Event Stock View")
@@ -1070,11 +1071,13 @@ with tab_methods:
     st.subheader("Methods and Limitations")
     st.markdown(
         f"""
-        The website is built around deploy-friendly local CSVs. The market and event
-        timeline tables are processed project outputs. Google Trends is currently
-        loaded as **{trends_status}**. Reddit/text/network data are currently
-        **{reddit_status}**. Raw Reddit ZIP files are intentionally kept out of Git,
-        but the processed tables needed by the app are committed.
+        The website is built around deploy-friendly local CSVs. Daily stock price
+        data source: We pulled data from Yahoo Finance and processed it into the
+        market timeline table. Event annotations are stored as processed project
+        outputs. Google Trends is currently loaded as **{trends_status}**.
+        Reddit/text/network data are currently **{reddit_status}**. Raw Reddit
+        ZIP files are intentionally kept out of Git, but the processed tables
+        needed by the app are committed.
 
         Track B uses simple, explainable text analysis:
         ticker mention counts, VADER sentiment, event-window top terms, and ticker

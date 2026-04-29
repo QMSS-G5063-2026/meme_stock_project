@@ -1,7 +1,7 @@
 file,status,notes
 event_timeline.csv,existing project data,Major meme-stock milestones used for app annotations.
 google_trends_state_level.csv,cached Google Trends API export,"Live pytrends collection was rate-limited, so cached raw Google Trends exports were reused."
-market_daily.csv,existing project data,"Daily price, volume, return, spike, and abnormal-return fields."
+market_daily.csv,Yahoo Finance daily historical prices,"Daily stock price data source: We pulled data from Yahoo Finance and processed it into price, volume, return, spike, and abnormal-return fields."
 reddit_daily_attention.csv,processed raw Reddit export,"Generated from files staged in data/raw/reddit with ticker extraction, VADER sentiment, and co-mentions."
 reddit_text_summary.csv,processed raw Reddit export,"Generated from files staged in data/raw/reddit with ticker extraction, VADER sentiment, and co-mentions."
 ticker_comention_edges.csv,processed raw Reddit export,"Generated from files staged in data/raw/reddit with ticker extraction, VADER sentiment, and co-mentions."

@@ -238,8 +238,8 @@ def build_data_dictionary() -> pd.DataFrame:
         [
             {
                 "file": "market_daily.csv",
-                "status": "existing project data",
-                "notes": "Daily price, volume, return, spike, and abnormal-return fields.",
+                "status": "Yahoo Finance daily historical prices",
+                "notes": "Daily stock price data source: We pulled data from Yahoo Finance and processed it into price, volume, return, spike, and abnormal-return fields.",
             },
             {
                 "file": "event_timeline.csv",
