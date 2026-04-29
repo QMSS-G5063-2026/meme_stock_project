@@ -116,8 +116,20 @@ def load_events() -> pd.DataFrame:
     return df.sort_values("date")
 
 
+def processed_file_fingerprint(filename: str) -> tuple[int, int]:
+    path = PROCESSED_DIR / filename
+    if not path.exists():
+        return (0, 0)
+    stat = path.stat()
+    return (stat.st_mtime_ns, stat.st_size)
+
+
 @st.cache_data
-def load_optional_csv(filename: str, date_cols: tuple[str, ...] = ()) -> pd.DataFrame:
+def load_optional_csv(
+    filename: str,
+    date_cols: tuple[str, ...] = (),
+    file_fingerprint: tuple[int, int] = (0, 0),
+) -> pd.DataFrame:
     path = PROCESSED_DIR / filename
     if not path.exists():
         return pd.DataFrame()
@@ -564,13 +576,35 @@ def is_fallback_status(status: str) -> bool:
 
 market = load_market_data()
 events = load_events()
-reddit_attention = load_optional_csv("reddit_daily_attention.csv", ("date",))
-edges = load_optional_csv("ticker_comention_edges.csv")
-text_summary = load_optional_csv("reddit_text_summary.csv")
-google_trends = load_optional_csv("google_trends_state_level.csv")
-data_dictionary = load_optional_csv("data_dictionary.csv")
-google_summary = load_optional_csv("google_trends_collection_summary.csv")
-reddit_summary = load_optional_csv("reddit_processing_summary.csv")
+reddit_attention = load_optional_csv(
+    "reddit_daily_attention.csv",
+    ("date",),
+    processed_file_fingerprint("reddit_daily_attention.csv"),
+)
+edges = load_optional_csv(
+    "ticker_comention_edges.csv",
+    file_fingerprint=processed_file_fingerprint("ticker_comention_edges.csv"),
+)
+text_summary = load_optional_csv(
+    "reddit_text_summary.csv",
+    file_fingerprint=processed_file_fingerprint("reddit_text_summary.csv"),
+)
+google_trends = load_optional_csv(
+    "google_trends_state_level.csv",
+    file_fingerprint=processed_file_fingerprint("google_trends_state_level.csv"),
+)
+data_dictionary = load_optional_csv(
+    "data_dictionary.csv",
+    file_fingerprint=processed_file_fingerprint("data_dictionary.csv"),
+)
+google_summary = load_optional_csv(
+    "google_trends_collection_summary.csv",
+    file_fingerprint=processed_file_fingerprint("google_trends_collection_summary.csv"),
+)
+reddit_summary = load_optional_csv(
+    "reddit_processing_summary.csv",
+    file_fingerprint=processed_file_fingerprint("reddit_processing_summary.csv"),
+)
 
 reddit_status = file_status(data_dictionary, "reddit_daily_attention.csv")
 network_status = file_status(data_dictionary, "ticker_comention_edges.csv")
