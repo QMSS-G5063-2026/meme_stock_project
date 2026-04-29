@@ -5,6 +5,13 @@ market activity evolved during major retail trading events. The main output is a
 Streamlit website connecting online discussion, regional search interest, ticker
 co-mentions, and financial market behavior.
 
+## Public Website
+
+Public app URL: add the Streamlit Community Cloud URL here after deployment.
+
+Final submission target: May 3, 2026. The local app is submission-ready once the
+public URL has been added and verified from a clean browser session.
+
 ## Run the App
 
 ```bash
@@ -41,6 +48,11 @@ This pipeline:
   and event window. Live collection can be rate-limited, so the rebuild script
   reuses cached raw exports when needed.
 
+The app relies on committed processed CSVs for deployment. Raw Reddit ZIP files
+stay local because they are too large for normal GitHub hosting. Google Trends
+values are normalized relative interest, not raw search counts, so the map
+supports within-window geographic comparison rather than absolute search volume.
+
 ## Specialized Visualizations
 
 The website demonstrates all three specialized visualization types named in the
@@ -53,4 +65,14 @@ course prompt:
 See `docs/methods.md`, `docs/process_book.md`, and
 `docs/presentation_notes.md` for the project methods, design decisions, and demo
 path.
+
+## Final Demo Path
+
+1. Start in **Overview** and state the guiding question.
+2. Move to **Timeline**, choose a focus stock, and use the direct event labels
+   and Event Stock View to explain the January 2021 spike.
+3. Move to **Reddit/Text** to show attention, sentiment, and terms.
+4. Move to **Network** to highlight the strongest ticker co-mentions.
+5. Move to **Map** to compare state-level search interest and top states.
+6. End in **Methods** with data caveats and reproducibility notes.
 

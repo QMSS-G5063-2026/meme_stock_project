@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import textwrap
 
 import networkx as nx
 import numpy as np
@@ -163,6 +164,56 @@ def format_percent(value: float | None) -> str:
     return f"{value * 100:.1f}%"
 
 
+def visible_events(events_df: pd.DataFrame, limit: int = 8) -> pd.DataFrame:
+    if events_df.empty:
+        return pd.DataFrame(columns=["date", "ticker", "event"])
+    return events_df.head(limit).copy().reset_index(drop=True)
+
+
+def wrap_event_label(label: object, width: int = 28) -> str:
+    text = str(label)
+    return "<br>".join(textwrap.wrap(text, width=width, break_long_words=False))
+
+
+def add_event_lines_and_labels(
+    fig: go.Figure,
+    events_df: pd.DataFrame,
+    *,
+    label_y_start: float = 1.16,
+    label_step: float = 0.055,
+) -> go.Figure:
+    events_to_show = visible_events(events_df)
+    for idx, event in events_to_show.iterrows():
+        fig.add_vline(
+            x=event["date"],
+            line_width=1,
+            line_dash="dash",
+            line_color="#5b616e",
+            opacity=0.55,
+        )
+        fig.add_annotation(
+            x=event["date"],
+            y=label_y_start - label_step * (idx % 3),
+            yref="paper",
+            text=wrap_event_label(event["event"]),
+            showarrow=False,
+            textangle=-20,
+            align="left",
+            font=dict(size=10, color="#374151"),
+            bgcolor="rgba(255,255,255,0.78)",
+            bordercolor="rgba(107,114,128,0.28)",
+            borderwidth=1,
+            borderpad=2,
+        )
+    return fig
+
+
+def format_signed_percent(value: float | None) -> str:
+    if value is None or pd.isna(value):
+        return "n/a"
+    return f"{value * 100:+.1f}%"
+
+
 def make_timeline_chart(
     market_df: pd.DataFrame,
     events_df: pd.DataFrame,
@@ -238,24 +289,7 @@ def make_timeline_chart(
                 col=1,
             )
 
-    for _, event in events_df.head(8).iterrows():
-        fig.add_vline(
-            x=event["date"],
-            line_width=1,
-            line_dash="dash",
-            line_color="#5b616e",
-            opacity=0.55,
-        )
-        fig.add_annotation(
-            x=event["date"],
-            y=1.02,
-            yref="paper",
-            text=event["event"],
-            showarrow=False,
-            textangle=-35,
-            align="left",
-            font=dict(size=10, color="#374151"),
-        )
+    add_event_lines_and_labels(fig, events_df)
 
     row1_title = f"{y_title}{' (%)' if y_col in {'daily_return', 'abnormal_return'} else ''}"
     fig.update_yaxes(title_text=row1_title, row=1, col=1)
@@ -264,12 +298,186 @@ def make_timeline_chart(
         fig.update_yaxes(title_text="Mentions", row=3, col=1)
     fig.update_layout(
         height=760 if rows == 3 else 620,
-        margin=dict(l=24, r=24, t=70, b=28),
+        margin=dict(l=24, r=24, t=140, b=28),
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.04, xanchor="left", x=0),
         barmode="overlay",
     )
     return fig
+
+
+def make_candlestick_chart(market_df: pd.DataFrame, events_df: pd.DataFrame, focus_ticker: str) -> go.Figure:
+    fig = go.Figure(
+        data=[
+            go.Candlestick(
+                x=market_df["date"],
+                open=market_df["open"],
+                high=market_df["high"],
+                low=market_df["low"],
+                close=market_df["close"],
+                name=focus_ticker,
+                increasing_line_color=TICKER_COLORS.get(focus_ticker, "#00798C"),
+                decreasing_line_color="#6B7280",
+            )
+        ]
+    )
+    add_event_lines_and_labels(fig, events_df, label_y_start=1.18)
+    fig.update_layout(
+        title=f"{focus_ticker} OHLC around selected events",
+        height=520,
+        margin=dict(l=20, r=20, t=140, b=30),
+        xaxis_title="Date",
+        yaxis_title="Price",
+        xaxis_rangeslider_visible=False,
+    )
+    return fig
+
+
+def make_cumulative_return_chart(market_df: pd.DataFrame, events_df: pd.DataFrame, focus_ticker: str) -> go.Figure:
+    chart_df = market_df.copy()
+    start_price = chart_df["adj_close"].dropna().iloc[0] if not chart_df["adj_close"].dropna().empty else np.nan
+    if pd.notna(start_price) and start_price != 0:
+        chart_df["cumulative_return"] = chart_df["adj_close"] / start_price - 1
+    else:
+        chart_df["cumulative_return"] = np.nan
+    fig = go.Figure(
+        go.Scatter(
+            x=chart_df["date"],
+            y=chart_df["cumulative_return"] * 100,
+            mode="lines",
+            name="Cumulative return",
+            line=dict(color=TICKER_COLORS.get(focus_ticker, "#00798C"), width=2.4),
+            hovertemplate="%{x|%Y-%m-%d}<br>Cumulative return: %{y:.1f}%<extra></extra>",
+        )
+    )
+    fig.add_hline(y=0, line_dash="dash", line_color="#6b7280")
+    add_event_lines_and_labels(fig, events_df, label_y_start=1.18)
+    fig.update_layout(
+        title=f"{focus_ticker} cumulative return from window start",
+        height=430,
+        margin=dict(l=20, r=20, t=130, b=30),
+        xaxis_title="Date",
+        yaxis_title="Return (%)",
+        hovermode="x unified",
+    )
+    return fig
+
+
+def make_event_return_chart(market_df: pd.DataFrame, events_df: pd.DataFrame, focus_ticker: str) -> go.Figure:
+    chart_df = market_df.copy()
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=chart_df["date"],
+            y=chart_df["daily_return"] * 100,
+            name="Daily return",
+            marker_color=TICKER_COLORS.get(focus_ticker, "#00798C"),
+            opacity=0.72,
+            hovertemplate="%{x|%Y-%m-%d}<br>Daily return: %{y:.1f}%<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            x=chart_df["date"],
+            y=chart_df["abnormal_return"] * 100,
+            name="Abnormal return",
+            marker_color="#D1495B",
+            opacity=0.56,
+            hovertemplate="%{x|%Y-%m-%d}<br>Abnormal return: %{y:.1f}%<extra></extra>",
+        )
+    )
+    fig.add_hline(y=0, line_dash="dash", line_color="#6b7280")
+    add_event_lines_and_labels(fig, events_df, label_y_start=1.18)
+    fig.update_layout(
+        title=f"{focus_ticker} daily vs. abnormal returns",
+        height=430,
+        margin=dict(l=20, r=20, t=130, b=30),
+        xaxis_title="Date",
+        yaxis_title="Return (%)",
+        barmode="overlay",
+        hovermode="x unified",
+    )
+    return fig
+
+
+def make_volume_spike_chart(market_df: pd.DataFrame, events_df: pd.DataFrame, focus_ticker: str) -> go.Figure:
+    chart_df = market_df.copy()
+    volume_spike = chart_df.get("volume_spike", pd.Series(False, index=chart_df.index)).astype(bool)
+    return_spike = chart_df.get("return_spike", pd.Series(False, index=chart_df.index)).astype(bool)
+    spike_mask = volume_spike | return_spike
+    marker_colors = np.where(spike_mask, "#D1495B", TICKER_COLORS.get(focus_ticker, "#00798C"))
+    fig = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.08,
+        row_heights=[0.68, 0.32],
+        subplot_titles=["Trading volume", "Volume z-score"],
+    )
+    fig.add_trace(
+        go.Bar(
+            x=chart_df["date"],
+            y=chart_df["volume"],
+            name="Volume",
+            marker_color=marker_colors,
+            hovertemplate="%{x|%Y-%m-%d}<br>Volume: %{y:,.0f}<extra></extra>",
+        ),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=chart_df["date"],
+            y=chart_df["volume_zscore"],
+            mode="lines+markers",
+            name="Volume z-score",
+            line=dict(color="#3E5C76", width=1.8),
+            marker=dict(size=np.where(spike_mask, 9, 5), color=marker_colors),
+            hovertemplate="%{x|%Y-%m-%d}<br>Volume z-score: %{y:.2f}<extra></extra>",
+        ),
+        row=2,
+        col=1,
+    )
+    add_event_lines_and_labels(fig, events_df, label_y_start=1.18)
+    fig.update_yaxes(title_text="Shares", row=1, col=1)
+    fig.update_yaxes(title_text="Z-score", row=2, col=1)
+    fig.update_layout(
+        title=f"{focus_ticker} volume and flagged spike days",
+        height=520,
+        margin=dict(l=20, r=20, t=140, b=30),
+        hovermode="x unified",
+        showlegend=False,
+    )
+    return fig
+
+
+def make_stock_summary(market_df: pd.DataFrame) -> pd.DataFrame:
+    if market_df.empty:
+        return pd.DataFrame()
+    chart_df = market_df.sort_values("date").copy()
+    priced_df = chart_df.dropna(subset=["adj_close"])
+    if priced_df.empty:
+        return pd.DataFrame()
+    start_row = priced_df.iloc[0]
+    end_row = priced_df.iloc[-1]
+    peak_volume_row = chart_df.loc[chart_df["volume"].idxmax()]
+    largest_gain_row = chart_df.loc[chart_df["daily_return"].idxmax()]
+    largest_loss_row = chart_df.loc[chart_df["daily_return"].idxmin()]
+    volume_spike = chart_df.get("volume_spike", pd.Series(False, index=chart_df.index)).astype(bool)
+    return_spike = chart_df.get("return_spike", pd.Series(False, index=chart_df.index)).astype(bool)
+    spike_days = int(
+        (volume_spike | return_spike).sum()
+    )
+    summary = [
+        {"metric": "Start price", "value": f"${start_row['adj_close']:.2f} on {start_row['date'].date()}"},
+        {"metric": "End price", "value": f"${end_row['adj_close']:.2f} on {end_row['date'].date()}"},
+        {"metric": "Cumulative return", "value": format_signed_percent(end_row["adj_close"] / start_row["adj_close"] - 1)},
+        {"metric": "Peak volume", "value": f"{peak_volume_row['volume']:,.0f} on {peak_volume_row['date'].date()}"},
+        {"metric": "Largest daily gain", "value": f"{format_signed_percent(largest_gain_row['daily_return'])} on {largest_gain_row['date'].date()}"},
+        {"metric": "Largest daily loss", "value": f"{format_signed_percent(largest_loss_row['daily_return'])} on {largest_loss_row['date'].date()}"},
+        {"metric": "Flagged spike days", "value": f"{spike_days:,}"},
+    ]
+    return pd.DataFrame(summary)
 
 
 def make_network_chart(edges: pd.DataFrame) -> go.Figure:
@@ -565,11 +773,62 @@ with tab_overview:
 
 with tab_timeline:
     st.subheader("Linked Market and Attention Timeline")
-    fig = make_timeline_chart(filtered_market, filtered_events, filtered_reddit, market_metric)
-    st.plotly_chart(fig, width="stretch")
-    st.caption(
-        f"Market data are processed project data. Reddit attention status: {reddit_status}."
+    default_focus = selected_tickers[0] if selected_tickers else available_tickers[0]
+    focus_index = available_tickers.index(default_focus) if default_focus in available_tickers else 0
+    timeline_focus_ticker = st.selectbox(
+        "Timeline focus stock",
+        available_tickers,
+        index=focus_index,
     )
+
+    timeline_market = filter_market(market, [timeline_focus_ticker], start_date, end_date)
+    timeline_events = filter_events(events, [timeline_focus_ticker], start_date, end_date)
+    timeline_reddit = pd.DataFrame()
+    if not reddit_attention.empty:
+        timeline_reddit = reddit_attention[
+            (reddit_attention["ticker"] == timeline_focus_ticker)
+            & (reddit_attention["date"] >= start_date)
+            & (reddit_attention["date"] <= end_date)
+        ].copy()
+
+    if timeline_market.empty:
+        st.warning("No market rows match the timeline focus stock and date range.")
+    else:
+        fig = make_timeline_chart(timeline_market, timeline_events, timeline_reddit, market_metric)
+        st.plotly_chart(fig, width="stretch")
+        if timeline_events.empty:
+            st.info("No event annotations fall inside the selected timeline window.")
+        st.caption(
+            f"Timeline is focused on {timeline_focus_ticker}. Event labels use the original event text directly on the chart. "
+            f"Market data are processed project data. Reddit attention status: {reddit_status}."
+        )
+
+        st.subheader("Event Stock View")
+        summary = make_stock_summary(timeline_market)
+        if not summary.empty:
+            st.dataframe(summary, width="stretch", hide_index=True)
+
+        st.plotly_chart(
+            make_candlestick_chart(timeline_market, timeline_events, timeline_focus_ticker),
+            width="stretch",
+        )
+
+        return_col, abnormal_col = st.columns(2)
+        with return_col:
+            st.plotly_chart(
+                make_cumulative_return_chart(timeline_market, timeline_events, timeline_focus_ticker),
+                width="stretch",
+            )
+        with abnormal_col:
+            st.plotly_chart(
+                make_event_return_chart(timeline_market, timeline_events, timeline_focus_ticker),
+                width="stretch",
+            )
+
+        st.plotly_chart(
+            make_volume_spike_chart(timeline_market, timeline_events, timeline_focus_ticker),
+            width="stretch",
+        )
 
 
 with tab_text:
@@ -669,8 +928,34 @@ with tab_network:
         if network_edges.empty:
             st.info("No edges survive the current ticker and weight filters.")
         else:
-            st.plotly_chart(make_network_chart(network_edges), width="stretch")
             edge_table = network_edges.sort_values("weight", ascending=False)
+            top_edge = edge_table.iloc[0]
+            connected_tickers = sorted(
+                set(edge_table["source"].tolist()) | set(edge_table["target"].tolist())
+            )
+
+            summary_cols = st.columns(3)
+            summary_cols[0].metric(
+                "Strongest pair",
+                f"{top_edge['source']} + {top_edge['target']}",
+                f"{int(top_edge['weight']):,} co-mentions",
+            )
+            summary_cols[1].metric("Edges shown", f"{len(edge_table):,}")
+            summary_cols[2].metric("Connected tickers", f"{len(connected_tickers):,}")
+
+            st.write("Top co-mentions in this view")
+            top_pairs = edge_table.head(5).copy()
+            top_pairs.insert(
+                0,
+                "pair",
+                top_pairs["source"].astype(str) + " + " + top_pairs["target"].astype(str),
+            )
+            st.dataframe(
+                top_pairs[["pair", "window", "weight"]],
+                width="stretch",
+                hide_index=True,
+            )
+            st.plotly_chart(make_network_chart(network_edges), width="stretch")
             st.dataframe(edge_table, width="stretch", hide_index=True)
 
         st.caption(
@@ -714,6 +999,18 @@ with tab_map:
             )
             map_fig.update_layout(height=570, margin=dict(l=10, r=10, t=55, b=10))
             st.plotly_chart(map_fig, width="stretch")
+            top_states = (
+                map_df.sort_values(["interest", "state"], ascending=[False, True])
+                .head(10)
+                .reset_index(drop=True)
+            )
+            top_states.insert(0, "rank", np.arange(1, len(top_states) + 1))
+            st.write("Top states for the selected term and window")
+            st.dataframe(
+                top_states[["rank", "state", "state_code", "interest"]],
+                width="stretch",
+                hide_index=True,
+            )
 
         st.markdown(
             """

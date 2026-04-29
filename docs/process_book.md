@@ -25,6 +25,14 @@ The third decision was to use Plotly's built-in U.S. state choropleth for Google
 Trends. This gives a reliable geospatial visualization without introducing a
 fragile shapefile join.
 
+The final hardening pass focused on presentation clarity and event-window stock
+context rather than expanding data scope. The timeline now lets the presenter
+choose one focus stock, shows original event labels directly on the chart, and
+adds an Event Stock View with OHLC, cumulative-return, return, and volume/spike
+charts. The network view adds a top co-mentions summary before the graph, and
+the map view adds a top-states table so the geographic pattern is easier to
+explain during a short demo.
+
 ## Data Decisions
 
 Market data and event annotations were already processed in the repository. For
@@ -45,10 +53,10 @@ for the Streamlit app and presentation.
 The final app is organized to support a short presentation:
 
 1. Overview: introduce the question and data status.
-2. Timeline: show the January 2021 synchronized spike.
+2. Timeline: choose a focus stock and connect direct event labels to stock movement.
 3. Reddit/Text: explain how discussion is summarized.
-4. Network: show the meme-stock basket effect.
-5. Map: show geographic search interest from Google Trends.
+4. Network: show the meme-stock basket effect and strongest co-mention pairs.
+5. Map: show geographic search interest and the highest-interest states.
 6. Methods: close with source notes and limitations.
 
 ## Remaining Limitation
