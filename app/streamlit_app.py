@@ -840,12 +840,25 @@ with tab_text:
         mentions_fig = px.bar(
             mention_by_ticker,
             x="ticker",
-            y=["post_mentions", "comment_mentions"],
-            color_discrete_sequence=["#00798C", "#D1495B"],
-            labels={"value": "Mentions", "variable": "Type", "ticker": "Ticker"},
+            y="total_mentions",
+            color="ticker",
+            color_discrete_map=TICKER_COLORS,
+            category_orders={"ticker": TICKER_ORDER},
+            hover_data={
+                "post_mentions": ":,",
+                "comment_mentions": ":,",
+                "total_mentions": ":,",
+                "ticker": False,
+            },
+            labels={
+                "total_mentions": "Mentions",
+                "post_mentions": "Post mentions",
+                "comment_mentions": "Comment mentions",
+                "ticker": "Ticker",
+            },
             title="Attention by ticker",
         )
-        mentions_fig.update_layout(height=390, margin=dict(l=20, r=20, t=55, b=20))
+        mentions_fig.update_layout(height=390, showlegend=False, margin=dict(l=20, r=20, t=55, b=20))
         st.plotly_chart(mentions_fig, width="stretch")
 
         with st.expander("Sentiment by ticker"):
@@ -855,6 +868,7 @@ with tab_text:
                 y="sentiment_mean",
                 color="ticker",
                 color_discrete_map=TICKER_COLORS,
+                category_orders={"ticker": TICKER_ORDER},
                 labels={"sentiment_mean": "Mean sentiment", "ticker": "Ticker"},
                 title="Simple sentiment by ticker",
             )
@@ -978,8 +992,8 @@ with tab_map:
             map_fig.update_layout(height=570, margin=dict(l=10, r=10, t=55, b=10))
             st.plotly_chart(map_fig, width="stretch")
             st.caption(
-                "Google Trends reports normalized relative interest, not raw search counts. "
-                "State values should be interpreted within the selected term and export window."
+                "Google Trends reports normalized relative interest, not population-adjusted or raw search counts. "
+                "Values are scaled against total Google searches in the selected geography and export window."
             )
             top_states = (
                 map_df.sort_values(["interest", "state"], ascending=[False, True])
