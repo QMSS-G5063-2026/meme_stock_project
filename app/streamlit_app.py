@@ -14,8 +14,6 @@ import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
-RAW_DIR = PROJECT_ROOT / "data" / "raw"
-PRESENTATION_FIGURE = PROJECT_ROOT / "docs" / "figures" / "january_2021_market_attention_summary.png"
 
 TICKER_ORDER = ["GME", "AMC", "BBBY", "BB", "NOK"]
 
@@ -40,51 +38,60 @@ st.set_page_config(
     page_title="Mapping Meme Stock Attention",
     page_icon=":bar_chart:",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
 
 st.markdown(
     """
     <style>
-    .block-container { padding-top: 1.6rem; padding-bottom: 2rem; }
+    .block-container {
+        padding-top: 1.25rem;
+        padding-bottom: 2rem;
+    }
+    h1, h2, h3 {
+        letter-spacing: 0;
+    }
+    h1 {
+        font-size: 2.25rem;
+        font-weight: 680;
+        margin-bottom: 0.25rem;
+    }
+    h2, h3 {
+        color: #111827;
+    }
     div[data-testid="stMetric"] {
-        background: #f7f8fa;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 0.85rem 0.95rem;
-    }
-    .method-note {
-        border-left: 4px solid #00798C;
-        padding: 0.65rem 0.9rem;
-        background: #f6fbfc;
-        margin: 0.5rem 0 1rem 0;
-    }
-    .story-card {
         background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 0.95rem 1rem;
-        min-height: 8.5rem;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        border: 1px solid #e8eaef;
+        border-radius: 6px;
+        padding: 0.75rem 0.85rem;
+        box-shadow: none;
     }
-    .status-row {
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 0.75rem 0.9rem;
-        margin-bottom: 0.5rem;
+    div[data-testid="stMetric"] label {
+        color: #6b7280;
+        font-weight: 500;
+    }
+    .summary-note {
+        background: #ffffff;
+        border-top: 1px solid #e8eaef;
+        border-bottom: 1px solid #e8eaef;
+        padding: 1rem 0;
+        margin: 0.25rem 0 1rem 0;
+        color: #374151;
+        line-height: 1.55;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.25rem;
+        border-bottom: 1px solid #eceff3;
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
-
-
-def path_has_staged_files(path: Path) -> bool:
-    if not path.exists():
-        return False
-    return any(item.is_file() and item.name != ".gitkeep" for item in path.rglob("*"))
 
 
 @st.cache_data
@@ -554,13 +561,6 @@ def make_network_chart(edges: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def data_status_note(kind: str) -> str:
-    raw_path = RAW_DIR / kind
-    if path_has_staged_files(raw_path):
-        return "Raw source files are staged locally."
-    return "Using committed processed outputs; raw source files are not required to run the app."
-
-
 def file_status(dictionary: pd.DataFrame, filename: str) -> str:
     if dictionary.empty or "file" not in dictionary.columns or "status" not in dictionary.columns:
         return "unknown"
@@ -648,11 +648,6 @@ with st.sidebar:
         index=0,
     )
 
-    st.divider()
-    st.caption("Processed data status")
-    st.write(f"Reddit/text/network: {reddit_status}")
-    st.write(f"Google Trends/map: {trends_status}")
-
 
 filtered_market = filter_market(market, selected_tickers, start_date, end_date)
 filtered_events = filter_events(events, selected_tickers, start_date, end_date)
@@ -667,8 +662,7 @@ if not reddit_attention.empty:
 
 st.title("Mapping Meme Stock Attention")
 st.markdown(
-    "An interactive dashboard connecting meme-stock market behavior, Reddit attention, "
-    "ticker co-mentions, and state-level Google search interest."
+    "A compact view of market volatility, Reddit attention, co-mentions, and search interest."
 )
 
 fallback_messages = []
@@ -680,94 +674,42 @@ if is_fallback_status(trends_status):
     fallback_messages.append("The map uses labeled fallback Google Trends data.")
 if fallback_messages:
     st.warning(" ".join(fallback_messages))
-else:
-    st.success("Market, Reddit/text/network, and Google Trends data are loaded from processed project/API outputs.")
 
 if filtered_market.empty:
     st.error("No market rows match the selected filters. Adjust the date range or ticker selection.")
     st.stop()
 
 
-tab_overview, tab_timeline, tab_text, tab_network, tab_map, tab_presentation, tab_methods = st.tabs(
-    ["Overview", "Timeline", "Reddit/Text", "Network", "Map", "Presentation", "Methods"]
+tab_overview, tab_timeline, tab_text, tab_network, tab_map = st.tabs(
+    ["Overview", "Timeline", "Reddit/Text", "Network", "Map"]
 )
 
 
 with tab_overview:
-    st.subheader("Audience Takeaways")
-    story_cols = st.columns(3)
-    with story_cols[0]:
-        st.markdown(
-            """
-            <div class="story-card">
-            <strong>1. Attention and volatility move together.</strong><br>
-            The January 2021 window gives the clearest example: price, volume,
-            Reddit attention, and search interest all spike around the same event cluster.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with story_cols[1]:
-        st.markdown(
-            """
-            <div class="story-card">
-            <strong>2. Meme stocks behave like a basket.</strong><br>
-            The co-mention network shows how GME, AMC, BB, NOK, and BBBY are discussed
-            together rather than as isolated companies.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with story_cols[2]:
-        st.markdown(
-            """
-            <div class="story-card">
-            <strong>3. Search interest adds geography.</strong><br>
-            State-level Google Trends data turns the story from a market chart into
-            a map of broader public attention.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.subheader("Project Snapshot")
-    selected_rows = len(filtered_market)
-    selected_events = len(filtered_events)
+    st.subheader("Key finding")
     max_abs_return = filtered_market["daily_return"].abs().max()
     peak_volume_row = filtered_market.loc[filtered_market["volume"].idxmax()]
     reddit_mentions = int(filtered_reddit["total_mentions"].sum()) if not filtered_reddit.empty else 0
+    st.markdown(
+        f"""
+        <div class="summary-note">
+        The selected window runs from <strong>{start_date.date()}</strong> to
+        <strong>{end_date.date()}</strong>. The largest volume day in this view is
+        <strong>{peak_volume_row['ticker']}</strong> on
+        <strong>{peak_volume_row['date'].date()}</strong>, with
+        <strong>{peak_volume_row['volume']:,.0f}</strong> shares traded.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Trading days shown", f"{filtered_market['date'].nunique():,}")
-    c2.metric("Market rows", f"{selected_rows:,}")
-    c3.metric("Max absolute daily return", format_percent(max_abs_return))
-    c4.metric("Reddit mentions", f"{reddit_mentions:,}" if reddit_mentions else "n/a")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Trading days", f"{filtered_market['date'].nunique():,}")
+    c2.metric("Max daily move", format_percent(max_abs_return))
+    c3.metric("Reddit mentions", f"{reddit_mentions:,}" if reddit_mentions else "n/a")
 
-    left, right = st.columns([1.2, 1])
-    with left:
-        st.markdown(
-            """
-            This MVP is organized around a simple question: when retail attention spiked,
-            did prices, volume, and public search behavior move at the same time?
-
-            Use the sidebar to select tickers and event windows. The same filters drive
-            the market timeline, Reddit/text summaries, co-mention network, and map view.
-            """
-        )
-        st.markdown(
-            f"""
-            <div class="method-note">
-            Current window: <strong>{start_date.date()} to {end_date.date()}</strong>.
-            Peak volume in this selection is <strong>{peak_volume_row['ticker']}</strong>
-            on <strong>{peak_volume_row['date'].date()}</strong>
-            with <strong>{peak_volume_row['volume']:,.0f}</strong> shares traded.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with right:
+    with st.expander("Event annotations"):
         if not filtered_events.empty:
-            st.write("Event annotations in the selected window")
             st.dataframe(
                 filtered_events.assign(date=filtered_events["date"].dt.date),
                 width="stretch",
@@ -776,33 +718,46 @@ with tab_overview:
         else:
             st.info("No event annotations fall inside this selection.")
 
-    st.subheader("Data Coverage")
-    coverage = (
-        market.groupby("ticker")
-        .agg(start=("date", "min"), end=("date", "max"), rows=("date", "count"))
-        .reset_index()
-    )
-    coverage["start"] = coverage["start"].dt.date
-    coverage["end"] = coverage["end"].dt.date
-    st.dataframe(coverage, width="stretch", hide_index=True)
+    with st.expander("Methods and data notes"):
+        st.markdown(
+            f"""
+            Daily stock price data source: We pulled data from Yahoo Finance and processed it into
+            the market timeline table. Event annotations are stored as processed project outputs.
+            Google Trends is currently loaded as **{trends_status}**. Reddit/text/network data are
+            currently **{reddit_status}**.
 
-    st.subheader("Source Status")
-    status_cols = st.columns(3)
-    with status_cols[0]:
-        st.markdown(
-            f"""<div class="status-row"><strong>Market timeline</strong><br>{file_status(data_dictionary, "market_daily.csv")}</div>""",
-            unsafe_allow_html=True,
+            Text analysis uses ticker mention counts, VADER sentiment, event-window top terms, and
+            ticker co-mentions. The map uses Plotly's built-in U.S. state choropleth rendering from
+            state codes.
+            """
         )
-    with status_cols[1]:
-        st.markdown(
-            f"""<div class="status-row"><strong>Reddit/text/network</strong><br>{reddit_status}</div>""",
-            unsafe_allow_html=True,
+        status = pd.DataFrame(
+            [
+                {"view": "Market timeline", "status": file_status(data_dictionary, "market_daily.csv")},
+                {"view": "Reddit/Text", "status": reddit_status},
+                {"view": "Network", "status": network_status},
+                {"view": "Map", "status": trends_status},
+            ]
         )
-    with status_cols[2]:
-        st.markdown(
-            f"""<div class="status-row"><strong>Google Trends map</strong><br>{trends_status}</div>""",
-            unsafe_allow_html=True,
+        st.dataframe(status, width="stretch", hide_index=True)
+
+        if not data_dictionary.empty:
+            st.write("Processed data dictionary")
+            st.dataframe(data_dictionary, width="stretch", hide_index=True)
+
+        expected = pd.DataFrame(
+            [
+                {"file": "market_daily.csv", "required": "yes", "view": "Timeline"},
+                {"file": "event_timeline.csv", "required": "yes", "view": "Timeline annotations"},
+                {"file": "reddit_daily_attention.csv", "required": "optional", "view": "Timeline, Reddit/Text"},
+                {"file": "ticker_comention_edges.csv", "required": "optional", "view": "Network"},
+                {"file": "reddit_text_summary.csv", "required": "optional", "view": "Reddit/Text"},
+                {"file": "google_trends_state_level.csv", "required": "optional", "view": "Map"},
+            ]
         )
+        expected["present"] = expected["file"].map(lambda filename: (PROCESSED_DIR / filename).exists())
+        st.write("Expected processed files")
+        st.dataframe(expected, width="stretch", hide_index=True)
 
 
 with tab_timeline:
@@ -838,32 +793,32 @@ with tab_timeline:
             f"Reddit attention status: {reddit_status}."
         )
 
-        st.subheader("Event Stock View")
-        summary = make_stock_summary(timeline_market)
-        if not summary.empty:
-            st.dataframe(summary, width="stretch", hide_index=True)
+        with st.expander("Detailed stock view"):
+            summary = make_stock_summary(timeline_market)
+            if not summary.empty:
+                st.dataframe(summary, width="stretch", hide_index=True)
 
-        st.plotly_chart(
-            make_candlestick_chart(timeline_market, timeline_events, timeline_focus_ticker),
-            width="stretch",
-        )
-
-        return_col, abnormal_col = st.columns(2)
-        with return_col:
             st.plotly_chart(
-                make_cumulative_return_chart(timeline_market, timeline_events, timeline_focus_ticker),
-                width="stretch",
-            )
-        with abnormal_col:
-            st.plotly_chart(
-                make_event_return_chart(timeline_market, timeline_events, timeline_focus_ticker),
+                make_candlestick_chart(timeline_market, timeline_events, timeline_focus_ticker),
                 width="stretch",
             )
 
-        st.plotly_chart(
-            make_volume_spike_chart(timeline_market, timeline_events, timeline_focus_ticker),
-            width="stretch",
-        )
+            return_col, abnormal_col = st.columns(2)
+            with return_col:
+                st.plotly_chart(
+                    make_cumulative_return_chart(timeline_market, timeline_events, timeline_focus_ticker),
+                    width="stretch",
+                )
+            with abnormal_col:
+                st.plotly_chart(
+                    make_event_return_chart(timeline_market, timeline_events, timeline_focus_ticker),
+                    width="stretch",
+                )
+
+            st.plotly_chart(
+                make_volume_spike_chart(timeline_market, timeline_events, timeline_focus_ticker),
+                width="stretch",
+            )
 
 
 with tab_text:
@@ -882,19 +837,18 @@ with tab_text:
             .sort_values("total_mentions", ascending=False)
         )
 
-        c1, c2 = st.columns([1.15, 1])
-        with c1:
-            mentions_fig = px.bar(
-                mention_by_ticker,
-                x="ticker",
-                y=["post_mentions", "comment_mentions"],
-                color_discrete_sequence=["#00798C", "#D1495B"],
-                labels={"value": "Mentions", "variable": "Type", "ticker": "Ticker"},
-                title="Attention by ticker",
-            )
-            mentions_fig.update_layout(height=390, margin=dict(l=20, r=20, t=55, b=20))
-            st.plotly_chart(mentions_fig, width="stretch")
-        with c2:
+        mentions_fig = px.bar(
+            mention_by_ticker,
+            x="ticker",
+            y=["post_mentions", "comment_mentions"],
+            color_discrete_sequence=["#00798C", "#D1495B"],
+            labels={"value": "Mentions", "variable": "Type", "ticker": "Ticker"},
+            title="Attention by ticker",
+        )
+        mentions_fig.update_layout(height=390, margin=dict(l=20, r=20, t=55, b=20))
+        st.plotly_chart(mentions_fig, width="stretch")
+
+        with st.expander("Sentiment by ticker"):
             sentiment_fig = px.bar(
                 mention_by_ticker,
                 x="ticker",
@@ -965,38 +919,27 @@ with tab_network:
         else:
             edge_table = network_edges.sort_values("weight", ascending=False)
             top_edge = edge_table.iloc[0]
-            connected_tickers = sorted(
-                set(edge_table["source"].tolist()) | set(edge_table["target"].tolist())
+            st.plotly_chart(make_network_chart(network_edges), width="stretch")
+            st.caption(
+                f"Strongest pair: {top_edge['source']} + {top_edge['target']} "
+                f"({int(top_edge['weight']):,} co-mentions). Current network data status: {network_status}."
             )
 
-            summary_cols = st.columns(3)
-            summary_cols[0].metric(
-                "Strongest pair",
-                f"{top_edge['source']} + {top_edge['target']}",
-                f"{int(top_edge['weight']):,} co-mentions",
-            )
-            summary_cols[1].metric("Edges shown", f"{len(edge_table):,}")
-            summary_cols[2].metric("Connected tickers", f"{len(connected_tickers):,}")
-
-            st.write("Top co-mentions in this view")
             top_pairs = edge_table.head(5).copy()
             top_pairs.insert(
                 0,
                 "pair",
                 top_pairs["source"].astype(str) + " + " + top_pairs["target"].astype(str),
             )
-            st.dataframe(
-                top_pairs[["pair", "window", "weight"]],
-                width="stretch",
-                hide_index=True,
-            )
-            st.plotly_chart(make_network_chart(network_edges), width="stretch")
-            st.dataframe(edge_table, width="stretch", hide_index=True)
-
-        st.caption(
-            "Edges represent posts/comments where two tickers appear together in the same event window. "
-            f"Current network data status: {network_status}."
-        )
+            with st.expander("Co-mention tables"):
+                st.write("Top pairs")
+                st.dataframe(
+                    top_pairs[["pair", "window", "weight"]],
+                    width="stretch",
+                    hide_index=True,
+                )
+                st.write("All shown edges")
+                st.dataframe(edge_table, width="stretch", hide_index=True)
 
 
 with tab_map:
@@ -1034,28 +977,23 @@ with tab_map:
             )
             map_fig.update_layout(height=570, margin=dict(l=10, r=10, t=55, b=10))
             st.plotly_chart(map_fig, width="stretch")
+            st.caption(
+                "Google Trends reports normalized relative interest, not raw search counts. "
+                "State values should be interpreted within the selected term and export window."
+            )
             top_states = (
                 map_df.sort_values(["interest", "state"], ascending=[False, True])
                 .head(10)
                 .reset_index(drop=True)
             )
             top_states.insert(0, "rank", np.arange(1, len(top_states) + 1))
-            st.write("Top states for the selected term and window")
-            st.dataframe(
-                top_states[["rank", "state", "state_code", "interest"]],
-                width="stretch",
-                hide_index=True,
-            )
+            with st.expander("Top states"):
+                st.dataframe(
+                    top_states[["rank", "state", "state_code", "interest"]],
+                    width="stretch",
+                    hide_index=True,
+                )
 
-        st.markdown(
-            """
-            <div class="method-note">
-            Google Trends reports normalized relative interest, not raw search counts.
-            State values should be interpreted within the selected term and export window.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
         if not google_summary.empty:
             st.caption(
                 "Collection summary: "
@@ -1065,81 +1003,3 @@ with tab_map:
                     if row.metric in {"data_status", "rows", "terms", "windows", "failures"}
                 )
             )
-
-
-with tab_presentation:
-    st.subheader("Presentation Path")
-    st.markdown(
-        """
-        Use this sequence for a short live demo:
-
-        1. Start in **Overview** and state the guiding question: how did online attention, search interest, and market volatility line up?
-        2. Move to **Timeline**, keep the January 2021 window, and point to the synchronized spike in price, volume, and attention.
-        3. Move to **Network** and show the meme-stock basket relationship with GME and AMC as the most connected pair.
-        4. Move to **Map** and switch between `GameStop`, `AMC stock`, and `WallStreetBets` to show geographic variation in search interest.
-        5. End in **Methods** with the data-status table and limitations.
-        """
-    )
-    if PRESENTATION_FIGURE.exists():
-        st.image(str(PRESENTATION_FIGURE), caption="Static presentation figure for the January 2021 event window.")
-    else:
-        st.info("Run `python -m src.processing.build_static_figures` to generate the static presentation figure.")
-
-    st.subheader("What Is Ready")
-    ready_cols = st.columns(3)
-    ready_cols[0].metric("Interactive views", "5")
-    ready_cols[1].metric("Specialized types", "3")
-    ready_cols[2].metric("Google Trends rows", f"{len(google_trends):,}" if not google_trends.empty else "0")
-    st.markdown(
-        """
-        The site demonstrates all three specialized types from the course prompt:
-        geospatial mapping, text analysis visualization, and network visualization.
-        The main remaining empirical caveats are coverage and normalization:
-        Reddit evidence is strongest around the local archive window, and Google
-        Trends reports relative interest rather than raw search counts.
-        """
-    )
-
-
-with tab_methods:
-    st.subheader("Methods and Limitations")
-    st.markdown(
-        f"""
-        The website is built around deploy-friendly local CSVs. Daily stock price
-        data source: We pulled data from Yahoo Finance and processed it into the
-        market timeline table. Event annotations are stored as processed project
-        outputs. Google Trends is currently loaded as **{trends_status}**.
-        Reddit/text/network data are currently **{reddit_status}**. Raw Reddit
-        ZIP files are intentionally kept out of Git, but the processed tables
-        needed by the app are committed.
-
-        Track B uses simple, explainable text analysis:
-        ticker mention counts, VADER sentiment, event-window top terms, and ticker
-        co-mentions. Track C uses Plotly's built-in U.S. state choropleth rendering
-        from state codes to avoid brittle shapefile joins.
-        """
-    )
-
-    if not data_dictionary.empty:
-        st.write("Processed data dictionary")
-        st.dataframe(data_dictionary, width="stretch", hide_index=True)
-
-    st.write("Expected processed files")
-    expected = pd.DataFrame(
-        [
-            {"file": "market_daily.csv", "required": "yes", "view": "Timeline"},
-            {"file": "event_timeline.csv", "required": "yes", "view": "Timeline annotations"},
-            {"file": "reddit_daily_attention.csv", "required": "optional", "view": "Timeline, Reddit/Text"},
-            {"file": "ticker_comention_edges.csv", "required": "optional", "view": "Network"},
-            {"file": "reddit_text_summary.csv", "required": "optional", "view": "Reddit/Text"},
-            {"file": "google_trends_state_level.csv", "required": "optional", "view": "Map"},
-        ]
-    )
-    expected["present"] = expected["file"].map(lambda filename: (PROCESSED_DIR / filename).exists())
-    st.dataframe(expected, width="stretch", hide_index=True)
-
-    with st.expander("Run locally"):
-        st.code("python -m streamlit run app/streamlit_app.py", language="bash")
-
-    with st.expander("Rebuild Track B/C outputs"):
-        st.code("python -m src.processing.build_all_track_b_c", language="bash")
