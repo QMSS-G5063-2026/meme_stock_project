@@ -7,7 +7,7 @@ co-mentions, and financial market behavior.
 
 ## Public Website
 
-Public app URL: add the Streamlit Community Cloud URL here after deployment.
+Public app URL: https://memestockproject.streamlit.app
 
 Final submission target: May 3, 2026. The local app is submission-ready once the
 public URL has been added and verified from a clean browser session.

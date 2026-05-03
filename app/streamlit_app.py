@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import textwrap
 
 import networkx as nx
 import numpy as np
@@ -33,6 +32,19 @@ TICKER_COLORS = {
     "NOK": "#4E937A",
 }
 
+WINDOW_DEFAULT_TERMS = {
+    "January 2021 squeeze": "GameStop",
+    "AMC June 2021 run": "AMC stock",
+    "BBBY August 2022 squeeze": "BBBY stock",
+    "BBBY bankruptcy": "BBBY stock",
+}
+
+TICKER_SEARCH_TERMS = {
+    "GME": "GameStop",
+    "AMC": "AMC stock",
+    "BBBY": "BBBY stock",
+}
+
 
 st.set_page_config(
     page_title="Mapping Meme Stock Attention",
@@ -48,9 +60,11 @@ st.markdown(
     .block-container {
         padding-top: 1.25rem;
         padding-bottom: 2rem;
+        max-width: 100%;
     }
     h1, h2, h3 {
         letter-spacing: 0;
+        overflow-wrap: anywhere;
     }
     h1 {
         font-size: 2.25rem;
@@ -79,14 +93,79 @@ st.markdown(
         margin: 0.25rem 0 1rem 0;
         color: #374151;
         line-height: 1.55;
+        overflow-wrap: anywhere;
+    }
+    .summary-note p {
+        margin: 0 0 0.35rem 0;
+    }
+    .summary-note p:last-child {
+        margin-bottom: 0;
     }
     .stTabs [data-baseweb="tab-list"] {
         gap: 0.25rem;
         border-bottom: 1px solid #eceff3;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
     }
     .stTabs [data-baseweb="tab"] {
         padding-left: 0.75rem;
         padding-right: 0.75rem;
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+    div[data-testid="stAppViewContainer"] {
+        overflow-x: hidden;
+    }
+    .mobile-title-break {
+        display: none;
+    }
+    @media (max-width: 640px) {
+        div[data-testid="stAppViewContainer"],
+        div[data-testid="stMain"],
+        main {
+            max-width: 100vw !important;
+            min-width: 0 !important;
+            overflow-x: hidden !important;
+        }
+        .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            padding-top: 0.85rem;
+            max-width: calc(100vw - 2rem) !important;
+            min-width: 0 !important;
+            width: calc(100vw - 2rem) !important;
+        }
+        h1 {
+            font-size: 1.85rem;
+            line-height: 1.15;
+            max-width: calc(100vw - 3rem) !important;
+            white-space: normal !important;
+        }
+        h1 span,
+        div[data-testid="stMarkdownContainer"],
+        div[data-testid="stMarkdownContainer"] p {
+            max-width: calc(100vw - 3rem) !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere;
+        }
+        .summary-note {
+            max-width: calc(100vw - 3rem) !important;
+        }
+        .summary-note,
+        .summary-note * {
+            overflow-wrap: anywhere;
+        }
+        .mobile-title-break {
+            display: block;
+        }
+        .stTabs [data-baseweb="tab"] {
+            padding-left: 0.55rem;
+            padding-right: 0.55rem;
+        }
+        div[data-testid="stMetric"] {
+            padding: 0.65rem 0.7rem;
+        }
     }
     </style>
     """,
@@ -183,15 +262,71 @@ def format_percent(value: float | None) -> str:
     return f"{value * 100:.1f}%"
 
 
+def format_compact_number(value: float | int | None) -> str:
+    if value is None or pd.isna(value):
+        return "n/a"
+    abs_value = abs(float(value))
+    if abs_value >= 1_000_000_000:
+        return f"{value / 1_000_000_000:.1f}B"
+    if abs_value >= 1_000_000:
+        return f"{value / 1_000_000:.1f}M"
+    if abs_value >= 1_000:
+        return f"{value / 1_000:.1f}K"
+    return f"{value:,.0f}"
+
+
 def visible_events(events_df: pd.DataFrame, limit: int = 8) -> pd.DataFrame:
     if events_df.empty:
         return pd.DataFrame(columns=["date", "ticker", "event"])
     return events_df.head(limit).copy().reset_index(drop=True)
 
 
-def wrap_event_label(label: object, width: int = 28) -> str:
-    text = str(label)
-    return "<br>".join(textwrap.wrap(text, width=width, break_long_words=False))
+def numbered_events(events_df: pd.DataFrame, limit: int = 8) -> pd.DataFrame:
+    event_rows = visible_events(events_df, limit=limit)
+    if event_rows.empty:
+        return event_rows
+    event_rows.insert(0, "marker", [f"#{idx + 1}" for idx in range(len(event_rows))])
+    return event_rows
+
+
+def date_span(df: pd.DataFrame, date_col: str = "date") -> tuple[pd.Timestamp, pd.Timestamp] | None:
+    if df.empty or date_col not in df.columns:
+        return None
+    dates = pd.to_datetime(df[date_col], errors="coerce").dropna()
+    if dates.empty:
+        return None
+    return pd.Timestamp(dates.min()), pd.Timestamp(dates.max())
+
+
+def reddit_coverage_message(
+    reddit_df: pd.DataFrame,
+    start_date: pd.Timestamp,
+    end_date: pd.Timestamp,
+    selected_window: str,
+) -> str:
+    span = date_span(reddit_df)
+    if span is None:
+        return ""
+    reddit_start, reddit_end = span
+    if start_date <= reddit_end and end_date >= reddit_start:
+        return ""
+    return (
+        f"Reddit archive covers {reddit_start.date()} to {reddit_end.date()}, so Reddit/Text and "
+        f"Network views do not represent {selected_window} ({start_date.date()} to {end_date.date()}). "
+        "Market and Map views still use the selected event window."
+    )
+
+
+def preferred_map_term(map_terms: list[str], selected_window: str, selected_tickers: list[str]) -> str:
+    candidates = [
+        WINDOW_DEFAULT_TERMS.get(selected_window, ""),
+        *(TICKER_SEARCH_TERMS.get(ticker, "") for ticker in selected_tickers),
+        "GameStop",
+    ]
+    for candidate in candidates:
+        if candidate and candidate in map_terms:
+            return candidate
+    return map_terms[0] if map_terms else ""
 
 
 def add_event_lines_and_labels(
@@ -214,15 +349,14 @@ def add_event_lines_and_labels(
             x=event["date"],
             y=label_y_start - label_step * (idx % 3),
             yref="paper",
-            text=wrap_event_label(event["event"]),
+            text=f"#{idx + 1}",
             showarrow=False,
-            textangle=-20,
-            align="left",
-            font=dict(size=10, color="#374151"),
-            bgcolor="rgba(255,255,255,0.78)",
-            bordercolor="rgba(107,114,128,0.28)",
+            align="center",
+            font=dict(size=10, color="#ffffff"),
+            bgcolor="#374151",
+            bordercolor="#ffffff",
             borderwidth=1,
-            borderpad=2,
+            borderpad=3,
         )
     return fig
 
@@ -499,6 +633,17 @@ def make_stock_summary(market_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(summary)
 
 
+def padded_axis_range(values: list[float], pad_ratio: float = 0.2) -> list[float] | None:
+    if not values:
+        return None
+    min_value = min(values)
+    max_value = max(values)
+    if min_value == max_value:
+        return [min_value - 1, max_value + 1]
+    pad = (max_value - min_value) * pad_ratio
+    return [min_value - pad, max_value + pad]
+
+
 def make_network_chart(edges: pd.DataFrame) -> go.Figure:
     graph = nx.Graph()
     for _, row in edges.iterrows():
@@ -547,15 +692,16 @@ def make_network_chart(edges: pd.DataFrame) -> go.Figure:
         hoverinfo="text",
         marker=dict(size=node_size, color=node_color, line=dict(width=1.5, color="white")),
         textfont=dict(color="white", size=12),
+        cliponaxis=False,
         showlegend=False,
     )
 
     fig = go.Figure(data=[*edge_traces, node_trace])
     fig.update_layout(
         height=520,
-        margin=dict(l=10, r=10, t=10, b=10),
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
+        margin=dict(l=24, r=24, t=16, b=16),
+        xaxis=dict(visible=False, range=padded_axis_range(node_x)),
+        yaxis=dict(visible=False, range=padded_axis_range(node_y)),
         plot_bgcolor="white",
     )
     return fig
@@ -658,9 +804,13 @@ if not reddit_attention.empty:
         & (reddit_attention["date"] >= start_date)
         & (reddit_attention["date"] <= end_date)
     ].copy()
+reddit_gap_message = reddit_coverage_message(reddit_attention, start_date, end_date, selected_window)
 
 
-st.title("Mapping Meme Stock Attention")
+st.markdown(
+    '<h1>Mapping Meme<span class="mobile-title-break"></span> Stock Attention</h1>',
+    unsafe_allow_html=True,
+)
 st.markdown(
     "A compact view of market volatility, Reddit attention, co-mentions, and search interest."
 )
@@ -674,14 +824,60 @@ if is_fallback_status(trends_status):
     fallback_messages.append("The map uses labeled fallback Google Trends data.")
 if fallback_messages:
     st.warning(" ".join(fallback_messages))
+if reddit_gap_message:
+    st.warning(reddit_gap_message)
 
 if filtered_market.empty:
     st.error("No market rows match the selected filters. Adjust the date range or ticker selection.")
     st.stop()
 
 
-tab_overview, tab_timeline, tab_text, tab_network, tab_map = st.tabs(
-    ["Overview", "Timeline", "Reddit/Text", "Network", "Map"]
+def render_methods_data_notes() -> None:
+    st.markdown(
+        f"""
+        Daily stock price data source: We pulled data from Yahoo Finance and processed it into
+        the market timeline table. Event annotations are stored as processed project outputs.
+        Google Trends is currently loaded as **{trends_status}**. Reddit/text/network data are
+        currently **{reddit_status}**.
+
+        Text analysis uses ticker mention counts, VADER sentiment, event-window top terms, and
+        ticker co-mentions. The map uses Plotly's built-in U.S. state choropleth rendering from
+        state codes.
+        """
+    )
+    if reddit_gap_message:
+        st.info(reddit_gap_message)
+    status = pd.DataFrame(
+        [
+            {"view": "Market timeline", "status": file_status(data_dictionary, "market_daily.csv")},
+            {"view": "Reddit/Text", "status": reddit_status},
+            {"view": "Network", "status": network_status},
+            {"view": "Map", "status": trends_status},
+        ]
+    )
+    st.dataframe(status, width="stretch", hide_index=True)
+
+    if not data_dictionary.empty:
+        st.write("Processed data dictionary")
+        st.dataframe(data_dictionary, width="stretch", hide_index=True)
+
+    expected = pd.DataFrame(
+        [
+            {"file": "market_daily.csv", "required": "yes", "view": "Timeline"},
+            {"file": "event_timeline.csv", "required": "yes", "view": "Timeline annotations"},
+            {"file": "reddit_daily_attention.csv", "required": "optional", "view": "Timeline, Reddit/Text"},
+            {"file": "ticker_comention_edges.csv", "required": "optional", "view": "Network"},
+            {"file": "reddit_text_summary.csv", "required": "optional", "view": "Reddit/Text"},
+            {"file": "google_trends_state_level.csv", "required": "optional", "view": "Map"},
+        ]
+    )
+    expected["present"] = expected["file"].map(lambda filename: (PROCESSED_DIR / filename).exists())
+    st.write("Expected processed files")
+    st.dataframe(expected, width="stretch", hide_index=True)
+
+
+tab_overview, tab_timeline, tab_text, tab_network, tab_map, tab_methods = st.tabs(
+    ["Overview", "Timeline", "Reddit/Text", "Network", "Map", "Methods"]
 )
 
 
@@ -693,11 +889,10 @@ with tab_overview:
     st.markdown(
         f"""
         <div class="summary-note">
-        The selected window runs from <strong>{start_date.date()}</strong> to
-        <strong>{end_date.date()}</strong>. The largest volume day in this view is
-        <strong>{peak_volume_row['ticker']}</strong> on
-        <strong>{peak_volume_row['date'].date()}</strong>, with
-        <strong>{peak_volume_row['volume']:,.0f}</strong> shares traded.
+        <p>Window: <strong>{start_date.date()}</strong> to <strong>{end_date.date()}</strong>.</p>
+        <p>Largest volume day:<br>
+        <strong>{peak_volume_row['ticker']}</strong> on <strong>{peak_volume_row['date'].date()}</strong><br>
+        <strong>{format_compact_number(peak_volume_row['volume'])}</strong> shares traded.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -710,8 +905,9 @@ with tab_overview:
 
     with st.expander("Event annotations"):
         if not filtered_events.empty:
+            overview_events = numbered_events(filtered_events)
             st.dataframe(
-                filtered_events.assign(date=filtered_events["date"].dt.date),
+                overview_events.assign(date=overview_events["date"].dt.date)[["marker", "date", "ticker", "event"]],
                 width="stretch",
                 hide_index=True,
             )
@@ -719,45 +915,7 @@ with tab_overview:
             st.info("No event annotations fall inside this selection.")
 
     with st.expander("Methods and data notes"):
-        st.markdown(
-            f"""
-            Daily stock price data source: We pulled data from Yahoo Finance and processed it into
-            the market timeline table. Event annotations are stored as processed project outputs.
-            Google Trends is currently loaded as **{trends_status}**. Reddit/text/network data are
-            currently **{reddit_status}**.
-
-            Text analysis uses ticker mention counts, VADER sentiment, event-window top terms, and
-            ticker co-mentions. The map uses Plotly's built-in U.S. state choropleth rendering from
-            state codes.
-            """
-        )
-        status = pd.DataFrame(
-            [
-                {"view": "Market timeline", "status": file_status(data_dictionary, "market_daily.csv")},
-                {"view": "Reddit/Text", "status": reddit_status},
-                {"view": "Network", "status": network_status},
-                {"view": "Map", "status": trends_status},
-            ]
-        )
-        st.dataframe(status, width="stretch", hide_index=True)
-
-        if not data_dictionary.empty:
-            st.write("Processed data dictionary")
-            st.dataframe(data_dictionary, width="stretch", hide_index=True)
-
-        expected = pd.DataFrame(
-            [
-                {"file": "market_daily.csv", "required": "yes", "view": "Timeline"},
-                {"file": "event_timeline.csv", "required": "yes", "view": "Timeline annotations"},
-                {"file": "reddit_daily_attention.csv", "required": "optional", "view": "Timeline, Reddit/Text"},
-                {"file": "ticker_comention_edges.csv", "required": "optional", "view": "Network"},
-                {"file": "reddit_text_summary.csv", "required": "optional", "view": "Reddit/Text"},
-                {"file": "google_trends_state_level.csv", "required": "optional", "view": "Map"},
-            ]
-        )
-        expected["present"] = expected["file"].map(lambda filename: (PROCESSED_DIR / filename).exists())
-        st.write("Expected processed files")
-        st.dataframe(expected, width="stretch", hide_index=True)
+        render_methods_data_notes()
 
 
 with tab_timeline:
@@ -788,10 +946,17 @@ with tab_timeline:
         if timeline_events.empty:
             st.info("No event annotations fall inside the selected timeline window.")
         st.caption(
-            f"Timeline is focused on {timeline_focus_ticker}. Event labels use the original event text directly on the chart. "
+            f"Timeline is focused on {timeline_focus_ticker}. Numbered event markers match the table below. "
             f"Daily stock price data source: We pulled data from Yahoo Finance and processed it for the app. "
             f"Reddit attention status: {reddit_status}."
         )
+        event_markers = numbered_events(timeline_events)
+        if not event_markers.empty:
+            st.dataframe(
+                event_markers.assign(date=event_markers["date"].dt.date)[["marker", "date", "ticker", "event"]],
+                width="stretch",
+                hide_index=True,
+            )
 
         with st.expander("Detailed stock view"):
             summary = make_stock_summary(timeline_market)
@@ -824,7 +989,10 @@ with tab_timeline:
 with tab_text:
     st.subheader("Reddit Attention and Text Signals")
     if filtered_reddit.empty:
-        st.warning("No Reddit attention table is available for the selected filters.")
+        if reddit_gap_message:
+            st.info("No Reddit attention rows fall inside this event window; see the coverage note above.")
+        else:
+            st.warning("No Reddit attention rows match the selected ticker and date filters.")
     else:
         mention_by_ticker = (
             filtered_reddit.groupby("ticker", as_index=False)
@@ -882,6 +1050,10 @@ with tab_text:
         text_window_options = ["All windows", *text_summary["window"].drop_duplicates().tolist()]
         default_text_idx = text_window_options.index(selected_window) if selected_window in text_window_options else 0
         text_window = st.selectbox("Text summary window", text_window_options, index=default_text_idx)
+        if selected_window not in text_window_options:
+            st.info(
+                f"Top-term data does not include {selected_window}; showing {text_window} from the available Reddit text windows."
+            )
         text_filtered = text_summary[text_summary["ticker"].isin(selected_tickers)].copy()
         if text_window != "All windows":
             text_filtered = text_filtered[text_filtered["window"] == text_window]
@@ -919,13 +1091,20 @@ with tab_network:
         controls = st.columns([1, 1, 2])
         with controls[0]:
             network_window = st.selectbox("Network window", network_windows, index=default_network_idx)
+        if selected_window not in network_windows:
+            st.info(
+                f"Network data is available for {', '.join(network_windows)}; using {network_window} because "
+                f"{selected_window} is outside the Reddit co-mention coverage."
+            )
         candidate_edges = edges[edges["window"] == network_window].copy()
         candidate_edges = candidate_edges[
             candidate_edges["source"].isin(selected_tickers) | candidate_edges["target"].isin(selected_tickers)
         ]
         max_edge = int(candidate_edges["weight"].max()) if not candidate_edges.empty else 1
         with controls[1]:
-            min_edge = st.slider("Minimum edge weight", 1, max(max_edge, 1), min(100, max(max_edge, 1)))
+            min_edge = st.slider("Minimum edge weight", 1, max(max_edge, 1), 1)
+        if not candidate_edges.empty:
+            st.caption(f"Available edge weights in this selection range from 1 to {max_edge:,}.")
         network_edges = candidate_edges[candidate_edges["weight"] >= min_edge]
 
         if network_edges.empty:
@@ -964,11 +1143,13 @@ with tab_map:
         map_windows = google_trends["window"].drop_duplicates().tolist()
         map_terms = google_trends["term"].drop_duplicates().tolist()
         default_map_window = map_windows.index(selected_window) if selected_window in map_windows else 0
+        default_map_term = preferred_map_term(map_terms, selected_window, selected_tickers)
+        default_map_term_idx = map_terms.index(default_map_term) if default_map_term in map_terms else 0
         map_controls = st.columns([1, 1, 2])
         with map_controls[0]:
             map_window = st.selectbox("Map window", map_windows, index=default_map_window)
         with map_controls[1]:
-            map_term = st.selectbox("Search term", map_terms)
+            map_term = st.selectbox("Search term", map_terms, index=default_map_term_idx)
 
         map_df = google_trends[
             (google_trends["window"] == map_window) & (google_trends["term"] == map_term)
@@ -1017,3 +1198,8 @@ with tab_map:
                     if row.metric in {"data_status", "rows", "terms", "windows", "failures"}
                 )
             )
+
+
+with tab_methods:
+    st.subheader("Methods and Data Notes")
+    render_methods_data_notes()

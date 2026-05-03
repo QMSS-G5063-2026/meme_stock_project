@@ -7,6 +7,11 @@ __pycache__/
 *.log
 streamlit_server*.log
 
+# Local browser/audit artifacts
+audit_screenshots/
+.tmp-chrome*/
+.tmp-edge-profile*/
+
 # Course materials copied into the local workspace
 course_content/
 final_project.md
@@ -14,4 +19,3 @@ final_project.md
 # Large raw Reddit archives. Keep processed CSV outputs in data/processed.
 data/raw/reddit/*
 !data/raw/reddit/.gitkeep
-
