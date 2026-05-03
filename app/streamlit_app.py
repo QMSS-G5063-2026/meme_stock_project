@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import textwrap
 
 import networkx as nx
 import numpy as np
@@ -281,14 +282,6 @@ def visible_events(events_df: pd.DataFrame, limit: int = 8) -> pd.DataFrame:
     return events_df.head(limit).copy().reset_index(drop=True)
 
 
-def numbered_events(events_df: pd.DataFrame, limit: int = 8) -> pd.DataFrame:
-    event_rows = visible_events(events_df, limit=limit)
-    if event_rows.empty:
-        return event_rows
-    event_rows.insert(0, "marker", [f"#{idx + 1}" for idx in range(len(event_rows))])
-    return event_rows
-
-
 def date_span(df: pd.DataFrame, date_col: str = "date") -> tuple[pd.Timestamp, pd.Timestamp] | None:
     if df.empty or date_col not in df.columns:
         return None
@@ -329,6 +322,11 @@ def preferred_map_term(map_terms: list[str], selected_window: str, selected_tick
     return map_terms[0] if map_terms else ""
 
 
+def wrap_event_label(label: object, width: int = 26) -> str:
+    text = str(label)
+    return "<br>".join(textwrap.wrap(text, width=width, break_long_words=False))
+
+
 def add_event_lines_and_labels(
     fig: go.Figure,
     events_df: pd.DataFrame,
@@ -349,14 +347,15 @@ def add_event_lines_and_labels(
             x=event["date"],
             y=label_y_start - label_step * (idx % 3),
             yref="paper",
-            text=f"#{idx + 1}",
+            text=wrap_event_label(event["event"]),
             showarrow=False,
-            align="center",
-            font=dict(size=10, color="#ffffff"),
-            bgcolor="#374151",
-            bordercolor="#ffffff",
+            textangle=-18,
+            align="left",
+            font=dict(size=9, color="#374151"),
+            bgcolor="rgba(255,255,255,0.82)",
+            bordercolor="rgba(107,114,128,0.3)",
             borderwidth=1,
-            borderpad=3,
+            borderpad=2,
         )
     return fig
 
@@ -905,9 +904,9 @@ with tab_overview:
 
     with st.expander("Event annotations"):
         if not filtered_events.empty:
-            overview_events = numbered_events(filtered_events)
+            overview_events = visible_events(filtered_events)
             st.dataframe(
-                overview_events.assign(date=overview_events["date"].dt.date)[["marker", "date", "ticker", "event"]],
+                overview_events.assign(date=overview_events["date"].dt.date)[["date", "ticker", "event"]],
                 width="stretch",
                 hide_index=True,
             )
@@ -946,14 +945,14 @@ with tab_timeline:
         if timeline_events.empty:
             st.info("No event annotations fall inside the selected timeline window.")
         st.caption(
-            f"Timeline is focused on {timeline_focus_ticker}. Numbered event markers match the table below. "
+            f"Timeline is focused on {timeline_focus_ticker}. Event text is shown directly on the chart. "
             f"Daily stock price data source: We pulled data from Yahoo Finance and processed it for the app. "
             f"Reddit attention status: {reddit_status}."
         )
-        event_markers = numbered_events(timeline_events)
-        if not event_markers.empty:
+        event_rows = visible_events(timeline_events)
+        if not event_rows.empty:
             st.dataframe(
-                event_markers.assign(date=event_markers["date"].dt.date)[["marker", "date", "ticker", "event"]],
+                event_rows.assign(date=event_rows["date"].dt.date)[["date", "ticker", "event"]],
                 width="stretch",
                 hide_index=True,
             )

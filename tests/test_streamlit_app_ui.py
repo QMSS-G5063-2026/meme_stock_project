@@ -49,6 +49,13 @@ class StreamlitDashboardUiTests(unittest.TestCase):
         values = selectbox_values(app)
         self.assertEqual(values["Search term"], "GameStop")
 
+    def test_event_annotations_use_text_labels_not_numbered_markers(self) -> None:
+        source = APP_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('text=wrap_event_label(event["event"])', source)
+        self.assertNotIn('text=f"#{idx + 1}"', source)
+        self.assertNotIn("Numbered event markers", source)
+
 
 if __name__ == "__main__":
     unittest.main()
