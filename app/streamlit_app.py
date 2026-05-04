@@ -882,6 +882,19 @@ tab_overview, tab_timeline, tab_text, tab_network, tab_map, tab_methods = st.tab
 
 with tab_overview:
     st.subheader("Key finding")
+    st.caption(
+        "On this page, we visualize the selected window with summary metrics and event annotations "
+        "to give readers context before exploring each chart."
+    )
+    st.markdown(
+        """
+        This project is motivated by the 2021 meme stock surge, when retail trading, online attention,
+        and news events moved together in ways that were hard to understand from stock prices alone.
+        We combine Yahoo Finance daily stock prices, processed r/wallstreetbets Reddit activity,
+        Google Trends state-level search interest, and hand-curated event annotations to show how
+        market moves, public attention, and geography line up across the selected window.
+        """
+    )
     max_abs_return = filtered_market["daily_return"].abs().max()
     peak_volume_row = filtered_market.loc[filtered_market["volume"].idxmax()]
     reddit_mentions = int(filtered_reddit["total_mentions"].sum()) if not filtered_reddit.empty else 0
@@ -919,6 +932,10 @@ with tab_overview:
 
 with tab_timeline:
     st.subheader("Linked Market and Attention Timeline")
+    st.caption(
+        "On this page, we visualize price, volume, event annotations, and Reddit attention with "
+        "linked Plotly time-series charts to give readers context for when market moves happened."
+    )
     default_focus = selected_tickers[0] if selected_tickers else available_tickers[0]
     focus_index = available_tickers.index(default_focus) if default_focus in available_tickers else 0
     timeline_focus_ticker = st.selectbox(
@@ -987,6 +1004,10 @@ with tab_timeline:
 
 with tab_text:
     st.subheader("Reddit Attention and Text Signals")
+    st.caption(
+        "On this page, we visualize Reddit mention volume, sentiment, and top terms with bar charts "
+        "to give readers context for what people were discussing around each event window."
+    )
     if filtered_reddit.empty:
         if reddit_gap_message:
             st.info("No Reddit attention rows fall inside this event window; see the coverage note above.")
@@ -1082,6 +1103,10 @@ with tab_text:
 
 with tab_network:
     st.subheader("Ticker Co-Mention Network")
+    st.caption(
+        "On this page, we visualize ticker co-mentions with an interactive network graph and edge tables "
+        "to give readers context for which stocks were discussed together."
+    )
     if edges.empty:
         st.warning("No co-mention edge table is available.")
     else:
@@ -1136,6 +1161,10 @@ with tab_network:
 
 with tab_map:
     st.subheader("State-Level Google Trends Interest")
+    st.caption(
+        "On this page, we visualize state-level Google Trends interest with a U.S. choropleth map "
+        "to give readers context for where search attention was relatively stronger."
+    )
     if google_trends.empty:
         st.warning("No Google Trends state-level table is available.")
     else:
@@ -1201,4 +1230,8 @@ with tab_map:
 
 with tab_methods:
     st.subheader("Methods and Data Notes")
+    st.caption(
+        "On this page, we summarize the processed data sources, file status, and method choices "
+        "with data tables to give readers context for how the dashboard was built."
+    )
     render_methods_data_notes()
