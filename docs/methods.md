@@ -4,6 +4,18 @@ This project connects market activity, Reddit attention, ticker co-mentions, and
 state-level Google search interest for five meme-stock tickers: GME, AMC, BBBY,
 BB, and NOK.
 
+## Source Notes
+
+- Market data are Yahoo Finance daily historical prices downloaded with
+  `yfinance`: https://pypi.org/project/yfinance/.
+- Reddit data come from a staged `r/wallstreetbets` posts/comments archive. The
+  archive source used for this workflow is the Kaggle "Reddit WallStreetBets
+  Posts and Comments" dataset, collected through `pmaw`/Pushshift:
+  https://www.kaggle.com/datasets/mattpodolak/rwallstreetbets-posts-and-comments.
+- Google Trends data are collected with `pytrends` and interpreted using
+  Google's documentation on normalized Trends values:
+  https://support.google.com/trends/answer/4365533.
+
 ## Current Data Layer
 
 - `data/processed/market_daily.csv` contains daily market prices, returns,
@@ -18,6 +30,14 @@ BB, and NOK.
   output contains 802,589 ticker-mention records from 2020-12-08 through
   2021-02-04. Raw Reddit ZIP files are not committed because they are too large
   for normal GitHub hosting, but the processed app-ready tables are committed.
+
+## Track A: Market Data
+
+Daily stock data were processed into ticker-level returns, volume z-scores,
+return z-scores, spike flags, and abnormal returns. Volume and return spikes are
+flagged when the absolute ticker-level z-score is greater than 2. Abnormal
+return is calculated as the stock's daily return minus the S&P 500 daily return,
+using `^GSPC` as the benchmark.
 
 ## Track B: Reddit, Text, and Network
 

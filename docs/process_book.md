@@ -16,6 +16,11 @@ shared filters makes the argument easier for an audience to follow: choose an
 event window, then watch the same time period flow through the market chart,
 text summaries, co-mention graph, and map.
 
+We also moved away from click-to-highlight interactions and toward an explicit
+filter display in the left sidebar. This makes the active ticker selection
+visible, keeps the interaction model consistent across tabs, and supports
+cleaner multi-stock comparisons during a live demo.
+
 The second decision was to keep the text analysis explainable. Instead of making
 BERTopic a requirement, the Track B pipeline uses ticker extraction, daily
 mention counts, VADER sentiment, top terms, and co-mentions. This is easier to

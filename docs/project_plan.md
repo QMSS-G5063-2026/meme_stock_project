@@ -207,14 +207,18 @@ meme_stock_project/
 |   `-- processed/
 |-- docs/
 |   |-- methods.md
+|   |-- project_plan.md
+|   |-- task_list.md
+|   |-- meme_stock_project_proposal.pdf
 |   `-- figures/
 |-- notebooks/
+|   |-- market_daily_processing.ipynb
+|   `-- market_daily_visualization.ipynb
 |-- src/
 |   |-- data_collection/
 |   |-- processing/
 |   |-- analysis/
 |   `-- visualization/
-|-- PROJECT_PLAN.md
 `-- README.md
 ```
 
